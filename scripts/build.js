@@ -39,3 +39,4 @@ execSync('npx tsc', { stdio: 'inherit' });
 console.log('==============================================');
 console.log('🎉 Build completed successfully!');
 console.log('==============================================');
+
