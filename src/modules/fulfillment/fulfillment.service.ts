@@ -1,5 +1,6 @@
 import { prisma } from '../../config/prisma.js';
 import { recordAuditLog } from '../../utils/auditLog.js';
+import { broadcastLiveEvent } from '../../utils/eventStream.js';
 
 export class FulfillmentService {
   static async dispatchCampaign(supplierId: string, campaignId: string) {
@@ -65,7 +66,7 @@ export class FulfillmentService {
       throw error;
     }
 
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Update campaign status
       const updatedCampaign = await tx.campaign.update({
         where: { id: campaignId },
@@ -109,13 +110,16 @@ export class FulfillmentService {
 
       return updatedCampaign;
     });
+
+    broadcastLiveEvent('CAMPAIGN_ARRIVED_AT_HUB', { campaignId, status: 'AT_HUB' });
+    return result;
   }
 
   static async verifyPickupToken(
     coordinatorId: string,
     data: { tokenCode: string; hubId?: string; notes?: string }
   ) {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const token = await tx.pickupToken.findUnique({
         where: { tokenCode: data.tokenCode.trim() },
         include: {
@@ -213,5 +217,13 @@ export class FulfillmentService {
         token: updatedToken,
       };
     });
+
+    broadcastLiveEvent('PICKUP_VERIFIED', {
+      orderId: result.order.id,
+      campaignId: result.order.campaignId,
+      status: 'COLLECTED',
+    });
+
+    return result;
   }
 }

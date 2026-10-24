@@ -2,8 +2,19 @@ import { Request, Response, NextFunction } from 'express';
 import { CampaignService } from './campaigns.service.js';
 import { sendResponse } from '../../utils/response.js';
 import { CampaignStatus } from '@prisma/client';
+import { addSSEClient } from '../../utils/eventStream.js';
 
 export class CampaignController {
+  static streamLiveUpdates(req: Request, res: Response) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    res.write(`event: connected\ndata: ${JSON.stringify({ message: 'BazarPool Live SSE stream connected' })}\n\n`);
+    addSSEClient(res);
+  }
+
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
       const supplierId = req.user!.id;

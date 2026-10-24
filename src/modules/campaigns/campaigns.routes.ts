@@ -6,6 +6,7 @@ import { authenticateJWT, requireRole } from '../../middleware/auth.js';
 
 const router = Router();
 
+router.get('/stream/live', CampaignController.streamLiveUpdates);
 router.get('/', CampaignController.getAll);
 router.get('/:id', CampaignController.getById);
 

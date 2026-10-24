@@ -31,4 +31,23 @@ export class WalletController {
       next(error);
     }
   }
+
+  static async mfsCheckout(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const { method, amount, trxId } = req.body;
+      const data = await WalletService.mfsCheckout(userId, {
+        method: method || 'BKASH',
+        amount: Number(amount),
+        trxId,
+      });
+      sendResponse(res, {
+        statusCode: 200,
+        message: `${method || 'MFS'} payment processed and wallet credited successfully.`,
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import { prisma } from '../../config/prisma.js';
 import { generateQrCodeDataUrl } from '../../utils/qrcode.js';
 import { recordAuditLog } from '../../utils/auditLog.js';
+import { broadcastLiveEvent } from '../../utils/eventStream.js';
 import crypto from 'crypto';
 
 export class CommitmentService {
@@ -12,7 +13,7 @@ export class CommitmentService {
     const { quantity, idempotencyKey } = data;
 
     // Concurrency-Safe Transaction
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Check idempotency if key provided
       if (idempotencyKey) {
         const existing = await tx.commitment.findUnique({
@@ -236,6 +237,28 @@ export class CommitmentService {
         remainingCapacity: Math.max(0, updatedCampaign.targetQuantity - updatedCampaign.committedQuantity),
       };
     });
+
+    // Broadcast live event via SSE
+    if (result && 'campaign' in result && result.campaign) {
+      broadcastLiveEvent('POOL_UPDATED', {
+        campaignId,
+        committedQuantity: result.campaign.committedQuantity,
+        targetQuantity: result.campaign.targetQuantity,
+        progressPercent: Math.min(100, Math.round((result.campaign.committedQuantity / result.campaign.targetQuantity) * 100)),
+        remainingQuantity: Math.max(0, result.campaign.targetQuantity - result.campaign.committedQuantity),
+        status: result.campaign.status,
+      });
+
+      if (result.campaignLocked) {
+        broadcastLiveEvent('POOL_LOCKED', {
+          campaignId,
+          title: result.campaign.title,
+          targetQuantity: result.campaign.targetQuantity,
+        });
+      }
+    }
+
+    return result;
   }
 
   static async getMyCommitments(consumerId: string) {
@@ -260,7 +283,7 @@ export class CommitmentService {
   }
 
   static async cancelCommitment(consumerId: string, commitmentId: string) {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const commitment = await tx.commitment.findUnique({
         where: { id: commitmentId },
         include: { campaign: true },
@@ -335,5 +358,12 @@ export class CommitmentService {
 
       return updatedCommitment;
     });
+
+    broadcastLiveEvent('POOL_UPDATED', {
+      campaignId: result.campaignId,
+      status: 'OPEN',
+    });
+
+    return result;
   }
 }

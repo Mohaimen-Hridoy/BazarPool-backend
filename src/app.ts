@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/errorHandler.js';
 import { sendResponse } from './utils/response.js';
 
@@ -14,7 +16,13 @@ import notificationRoutes from './modules/notifications/notifications.routes.js'
 
 const app = express();
 
-// Global Middlewares
+// Security Hardening with Helmet & CORS
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 app.use(
   cors({
     origin: '*',
@@ -23,6 +31,36 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate Limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    statusCode: 429,
+    message: 'Too many requests from this IP, please try again after 15 minutes.',
+    errors: ['RATE_LIMIT_EXCEEDED'],
+  },
+});
+app.use('/api/', generalLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    statusCode: 429,
+    message: 'Too many authentication attempts from this IP, please try again later.',
+    errors: ['AUTH_RATE_LIMIT_EXCEEDED'],
+  },
+});
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
 
 // Health Check Endpoint
 app.get('/api/v1/health', (_req, res) => {
