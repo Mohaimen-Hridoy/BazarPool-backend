@@ -100,107 +100,115 @@ async function main() {
   });
 
   // 2. Create Designated Pickup Hubs
-  const hubDhanmondi = await prisma.pickupHub.create({
-    data: {
-      name: 'Dhanmondi Community Hub',
-      address: 'House #42, Road #27 (Old), Dhanmondi',
-      city: 'Dhaka',
-      area: 'Dhanmondi',
-      contactPhone: '+8801722222222',
-    },
-  });
+  const hubDhanmondi = (await prisma.pickupHub.findFirst({ where: { name: 'Dhanmondi Community Hub' } })) || 
+    await prisma.pickupHub.create({
+      data: {
+        name: 'Dhanmondi Community Hub',
+        address: 'House #42, Road #27 (Old), Dhanmondi',
+        city: 'Dhaka',
+        area: 'Dhanmondi',
+        contactPhone: '+8801722222222',
+      },
+    });
 
-  const hubMirpur = await prisma.pickupHub.create({
-    data: {
-      name: 'Mirpur 10 Resident Hub',
-      address: 'Plot #15, Block #C, Mirpur 10 Roundabout',
-      city: 'Dhaka',
-      area: 'Mirpur',
-      contactPhone: '+8801755555555',
-    },
-  });
+  const hubMirpur = (await prisma.pickupHub.findFirst({ where: { name: 'Mirpur 10 Resident Hub' } })) ||
+    await prisma.pickupHub.create({
+      data: {
+        name: 'Mirpur 10 Resident Hub',
+        address: 'Plot #15, Block #C, Mirpur 10 Roundabout',
+        city: 'Dhaka',
+        area: 'Mirpur',
+        contactPhone: '+8801755555555',
+      },
+    });
 
-  const hubUttara = await prisma.pickupHub.create({
-    data: {
-      name: 'Uttara Sector 7 Community Center',
-      address: 'Road #11, Sector 7, Uttara',
-      city: 'Dhaka',
-      area: 'Uttara',
-      contactPhone: '+8801766666666',
-    },
-  });
+  const hubUttara = (await prisma.pickupHub.findFirst({ where: { name: 'Uttara Sector 7 Community Center' } })) ||
+    await prisma.pickupHub.create({
+      data: {
+        name: 'Uttara Sector 7 Community Center',
+        address: 'Road #11, Sector 7, Uttara',
+        city: 'Dhaka',
+        area: 'Uttara',
+        contactPhone: '+8801766666666',
+      },
+    });
 
   // 3. Create Wholesale Products
-  const productRice = await prisma.product.create({
-    data: {
-      supplierId: supplier.id,
-      title: 'Premium Dinajpur Miniket Rice (50kg Bulk Sack)',
-      description: 'Export-quality polished Miniket rice directly sourced from Dinajpur farmers. Best for hostel messes and household group-buying.',
-      category: 'Grains & Rice',
-      unit: 'sack',
-      images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80'],
-    },
-  });
+  const productRice = (await prisma.product.findFirst({ where: { title: 'Premium Dinajpur Miniket Rice (50kg Bulk Sack)' } })) ||
+    await prisma.product.create({
+      data: {
+        supplierId: supplier.id,
+        title: 'Premium Dinajpur Miniket Rice (50kg Bulk Sack)',
+        description: 'Export-quality polished Miniket rice directly sourced from Dinajpur farmers. Best for hostel messes and household group-buying.',
+        category: 'Grains & Rice',
+        unit: 'sack',
+        images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80'],
+      },
+    });
 
-  const productOil = await prisma.product.create({
-    data: {
-      supplierId: supplier.id,
-      title: 'Radhuni Pure Mustard Oil (5-Liter Bulk Can)',
-      description: '100% natural cold-pressed mustard oil directly from mill distributor at wholesale rates.',
-      category: 'Edible Oils',
-      unit: 'can',
-      images: ['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80'],
-    },
-  });
+  const productOil = (await prisma.product.findFirst({ where: { title: 'Radhuni Pure Mustard Oil (5-Liter Bulk Can)' } })) ||
+    await prisma.product.create({
+      data: {
+        supplierId: supplier.id,
+        title: 'Radhuni Pure Mustard Oil (5-Liter Bulk Can)',
+        description: '100% natural cold-pressed mustard oil directly from mill distributor at wholesale rates.',
+        category: 'Edible Oils',
+        unit: 'can',
+        images: ['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80'],
+      },
+    });
 
-  const productEggs = await prisma.product.create({
-    data: {
-      supplierId: supplier.id,
-      title: 'Farm Fresh Brown Eggs (100 Pieces Wholesale Crate)',
-      description: 'Grade A antibiotic-free organic poultry farm eggs in secure transport crates.',
-      category: 'Dairy & Poultry',
-      unit: 'crate',
-      images: ['https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&w=800&q=80'],
-    },
-  });
+  const productEggs = (await prisma.product.findFirst({ where: { title: 'Farm Fresh Brown Eggs (100 Pieces Wholesale Crate)' } })) ||
+    await prisma.product.create({
+      data: {
+        supplierId: supplier.id,
+        title: 'Farm Fresh Brown Eggs (100 Pieces Wholesale Crate)',
+        description: 'Grade A antibiotic-free organic poultry farm eggs in secure transport crates.',
+        category: 'Dairy & Poultry',
+        unit: 'crate',
+        images: ['https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&w=800&q=80'],
+      },
+    });
 
   // 4. Create Active Group-Buying Campaigns
   const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
   const fiveDaysLater = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
 
-  const campaignRice = await prisma.campaign.create({
-    data: {
-      supplierId: supplier.id,
-      productId: productRice.id,
-      pickupHubId: hubDhanmondi.id,
-      title: 'Bulk Miniket Rice Community Pool (Save 28% Wholesale)',
-      description: 'Join together with Dhanmondi & surrounding residents to unlock wholesale wholesale pricing on pure Dinajpur Miniket rice.',
-      unitPrice: 3200.0, // Wholesale price per 50kg sack (Market retail: ৳3,800)
-      targetQuantity: 40,
-      minCommitmentQty: 1,
-      maxCommitmentQty: 5,
-      committedQuantity: 26,
-      deadline: threeDaysLater,
-      status: 'OPEN',
-    },
-  });
+  const campaignRice = (await prisma.campaign.findFirst({ where: { title: 'Bulk Miniket Rice Community Pool (Save 28% Wholesale)' } })) ||
+    await prisma.campaign.create({
+      data: {
+        supplierId: supplier.id,
+        productId: productRice.id,
+        pickupHubId: hubDhanmondi.id,
+        title: 'Bulk Miniket Rice Community Pool (Save 28% Wholesale)',
+        description: 'Join together with Dhanmondi & surrounding residents to unlock wholesale wholesale pricing on pure Dinajpur Miniket rice.',
+        unitPrice: 3200.0, // Wholesale price per 50kg sack (Market retail: ৳3,800)
+        targetQuantity: 40,
+        minCommitmentQty: 1,
+        maxCommitmentQty: 5,
+        committedQuantity: 26,
+        deadline: threeDaysLater,
+        status: 'OPEN',
+      },
+    });
 
-  const campaignOil = await prisma.campaign.create({
-    data: {
-      supplierId: supplier.id,
-      productId: productOil.id,
-      pickupHubId: hubMirpur.id,
-      title: 'Winter Pure Mustard Oil 5L Pool (Factory Rate)',
-      description: 'Direct factory dispatch for Mirpur community members. Save ৳350 per 5L can by buying collectively.',
-      unitPrice: 1150.0, // Retail: ৳1,450
-      targetQuantity: 30,
-      minCommitmentQty: 1,
-      maxCommitmentQty: 4,
-      committedQuantity: 12,
-      deadline: fiveDaysLater,
-      status: 'OPEN',
-    },
-  });
+  const campaignOil = (await prisma.campaign.findFirst({ where: { title: 'Winter Pure Mustard Oil 5L Pool (Factory Rate)' } })) ||
+    await prisma.campaign.create({
+      data: {
+        supplierId: supplier.id,
+        productId: productOil.id,
+        pickupHubId: hubMirpur.id,
+        title: 'Winter Pure Mustard Oil 5L Pool (Factory Rate)',
+        description: 'Direct factory dispatch for Mirpur community members. Save ৳350 per 5L can by buying collectively.',
+        unitPrice: 1150.0, // Retail: ৳1,450
+        targetQuantity: 30,
+        minCommitmentQty: 1,
+        maxCommitmentQty: 4,
+        committedQuantity: 12,
+        deadline: fiveDaysLater,
+        status: 'OPEN',
+      },
+    });
 
   console.log('✅ BazarPool Seed completed successfully!');
   console.log(`Demo Users Created:

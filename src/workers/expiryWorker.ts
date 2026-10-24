@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../config/prisma.js';
 import { config } from '../config/index.js';
+import { broadcastLiveEvent } from '../utils/eventStream.js';
 
 export const processExpiredCampaigns = async () => {
   try {
@@ -91,6 +92,12 @@ export const processExpiredCampaigns = async () => {
         });
 
         console.log(`[Expiry Worker] Successfully finalized refunds for Campaign #${campaign.id}`);
+      });
+
+      broadcastLiveEvent('POOL_EXPIRED', {
+        campaignId: campaign.id,
+        title: campaign.title,
+        status: 'REFUNDED',
       });
     }
   } catch (error) {
