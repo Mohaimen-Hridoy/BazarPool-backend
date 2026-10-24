@@ -1,0 +1,299 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  CONSUMER
+  SUPPLIER
+  ADMIN
+  HUB_COORDINATOR
+}
+
+enum CampaignStatus {
+  OPEN
+  LOCKED
+  DISPATCHED
+  AT_HUB
+  COMPLETED
+  EXPIRED
+  REFUNDED
+}
+
+enum CommitmentStatus {
+  COMMITTED
+  ALLOCATED
+  CANCELLED
+  REFUNDED
+}
+
+enum LedgerEntryType {
+  TOP_UP
+  RESERVATION
+  RESERVATION_RELEASE
+  PURCHASE_DEBIT
+  REFUND
+}
+
+enum PickupTokenStatus {
+  PENDING
+  REDEEMED
+  EXPIRED
+}
+
+enum OrderStatus {
+  PENDING_FULFILLMENT
+  READY_FOR_PICKUP
+  COLLECTED
+  CANCELLED
+}
+
+// ==========================================
+// MODELS
+// ==========================================
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  role         UserRole      @default(CONSUMER)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  walletAccount  WalletAccount?
+  products       Product[]       @relation("SupplierProducts")
+  campaigns      Campaign[]      @relation("SupplierCampaigns")
+  commitments    Commitment[]    @relation("ConsumerCommitments")
+  orders         Order[]         @relation("ConsumerOrders")
+  pickupRecords  PickupRecord[]  @relation("CoordinatorPickups")
+  auditLogs      AuditLog[]      @relation("UserAuditLogs")
+  notifications  Notification[]  @relation("UserNotifications")
+
+  @@index([email])
+  @@index([role])
+}
+
+model Product {
+  id          String     @id @default(uuid())
+  supplierId  String
+  title       String
+  description String
+  category    String
+  unit        String     // e.g. "kg", "liter", "box", "bag"
+  images      String[]   @default([])
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  supplier    User       @relation("SupplierProducts", fields: [supplierId], references: [id], onDelete: Cascade)
+  campaigns   Campaign[]
+
+  @@index([supplierId])
+  @@index([category])
+}
+
+model PickupHub {
+  id           String         @id @default(uuid())
+  name         String
+  address      String
+  city         String
+  area         String
+  contactPhone String
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  campaigns     Campaign[]
+  pickupRecords PickupRecord[]
+
+  @@index([city, area])
+}
+
+model Campaign {
+  id                String         @id @default(uuid())
+  supplierId        String
+  productId         String
+  pickupHubId       String
+  title             String
+  description       String?
+  unitPrice         Float
+  targetQuantity    Int
+  minCommitmentQty  Int            @default(1)
+  maxCommitmentQty  Int
+  committedQuantity Int            @default(0)
+  deadline          DateTime
+  status            CampaignStatus @default(OPEN)
+  
+  // Lifecycle timestamps
+  lockedAt          DateTime?
+  dispatchedAt      DateTime?
+  arrivedAtHubAt    DateTime?
+  completedAt       DateTime?
+  expiredAt         DateTime?
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  supplier          User           @relation("SupplierCampaigns", fields: [supplierId], references: [id], onDelete: Restrict)
+  product           Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  pickupHub         PickupHub      @relation(fields: [pickupHubId], references: [id], onDelete: Restrict)
+  commitments       Commitment[]
+  orders            Order[]
+
+  @@index([status])
+  @@index([deadline])
+  @@index([supplierId])
+  @@index([pickupHubId])
+}
+
+model Commitment {
+  id             String           @id @default(uuid())
+  campaignId     String
+  consumerId     String
+  quantity       Int
+  unitPrice      Float
+  totalAmount    Float
+  status         CommitmentStatus @default(COMMITTED)
+  idempotencyKey String?          @unique
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  campaign       Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  consumer       User             @relation("ConsumerCommitments", fields: [consumerId], references: [id], onDelete: Cascade)
+  order          Order?
+
+  @@index([campaignId, consumerId])
+  @@index([status])
+}
+
+model WalletAccount {
+  id               String              @id @default(uuid())
+  userId           String              @unique
+  availableBalance Float               @default(0.0)
+  reservedBalance  Float               @default(0.0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerEntries    WalletLedgerEntry[]
+
+  @@index([userId])
+}
+
+model WalletLedgerEntry {
+  id              String          @id @default(uuid())
+  walletAccountId String
+  type            LedgerEntryType
+  amount          Float
+  balanceAfter    Float
+  referenceId     String?         // commitmentId, refundId, campaignId
+  notes           String?
+  idempotencyKey  String?         @unique
+  createdAt       DateTime        @default(now())
+
+  walletAccount   WalletAccount   @relation(fields: [walletAccountId], references: [id], onDelete: Cascade)
+
+  @@index([walletAccountId])
+  @@index([referenceId])
+  @@index([type])
+}
+
+model Order {
+  id            String         @id @default(uuid())
+  campaignId    String
+  consumerId    String
+  commitmentId  String         @unique
+  totalQuantity Int
+  totalAmount   Float
+  status        OrderStatus    @default(PENDING_FULFILLMENT)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  campaign      Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  consumer      User           @relation("ConsumerOrders", fields: [consumerId], references: [id], onDelete: Cascade)
+  commitment    Commitment     @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  pickupToken   PickupToken?
+  pickupRecord  PickupRecord?
+
+  @@index([campaignId])
+  @@index([consumerId])
+  @@index([status])
+}
+
+model PickupToken {
+  id             String            @id @default(uuid())
+  orderId        String            @unique
+  tokenCode      String            @unique
+  qrCodeDataUrl  String?           @db.Text
+  expiresAt      DateTime
+  status         PickupTokenStatus @default(PENDING)
+  redeemedAt     DateTime?
+  createdAt      DateTime          @default(now())
+
+  order          Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pickupRecord   PickupRecord?
+
+  @@index([tokenCode])
+  @@index([status])
+}
+
+model PickupRecord {
+  id            String      @id @default(uuid())
+  orderId       String      @unique
+  pickupTokenId String      @unique
+  coordinatorId String
+  hubId         String
+  collectedAt   DateTime    @default(now())
+  notes         String?
+
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  pickupToken   PickupToken @relation(fields: [pickupTokenId], references: [id], onDelete: Cascade)
+  coordinator   User        @relation("CoordinatorPickups", fields: [coordinatorId], references: [id], onDelete: Restrict)
+  hub           PickupHub   @relation(fields: [hubId], references: [id], onDelete: Restrict)
+
+  @@index([coordinatorId])
+  @@index([hubId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([action])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String   @default("GENERAL")
+  createdAt DateTime @default(now())
+
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
