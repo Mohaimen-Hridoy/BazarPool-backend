@@ -13,6 +13,7 @@ import walletRoutes from './modules/wallet/wallet.routes.js';
 import fulfillmentRoutes from './modules/fulfillment/fulfillment.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import notificationRoutes from './modules/notifications/notifications.routes.js';
+import { processExpiredCampaigns } from './workers/expiryWorker.js';
 
 const app = express();
 
@@ -25,7 +26,7 @@ app.use(
 );
 app.use(
   cors({
-    origin: '*',
+    origin: true,
     credentials: true,
   })
 );
@@ -85,6 +86,23 @@ app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/fulfillment', fulfillmentRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+
+// Vercel Serverless Cron Trigger for automated refunds
+app.all('/api/v1/cron/expiry', async (_req, res) => {
+  try {
+    await processExpiredCampaigns();
+    sendResponse(res, {
+      statusCode: 200,
+      message: 'Expired campaigns processed and refunded successfully.',
+    });
+  } catch (error: any) {
+    sendResponse(res, {
+      statusCode: 500,
+      message: 'Failed to process campaign expirations.',
+      errors: [error.message],
+    });
+  }
+});
 
 // Catch-all 404 Route
 app.use('*', (req, res) => {
